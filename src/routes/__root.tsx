@@ -1,4 +1,4 @@
-import "@/lib/ssr-shim";
+import "../lib/ssr-shim";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
