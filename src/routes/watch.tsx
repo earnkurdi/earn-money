@@ -10,7 +10,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/watch")({ component: Watch });
 
-declare global { interface Window { show_monetag?: any; } }
+declare global { interface Window { show_11040287?: (opts?: any) => Promise<void>; } }
 
 function Watch() {
   const { user, loading } = useAuth();
