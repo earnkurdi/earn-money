@@ -99,7 +99,7 @@ function Admin() {
         ))}
       </div>
 
-      </div>
+
 
       <div className="mt-5 glass rounded-2xl p-4 border border-primary/30">
         <h3 className="text-sm font-semibold flex items-center gap-2">🎯 Monetag Setup <span className="text-[10px] px-2 py-0.5 rounded bg-primary/20 text-primary">REQUIRED</span></h3>
