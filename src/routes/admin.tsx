@@ -99,6 +99,30 @@ function Admin() {
         ))}
       </div>
 
+      </div>
+
+      <div className="mt-5 glass rounded-2xl p-4 border border-primary/30">
+        <h3 className="text-sm font-semibold flex items-center gap-2">🎯 Monetag Setup <span className="text-[10px] px-2 py-0.5 rounded bg-primary/20 text-primary">REQUIRED</span></h3>
+        <p className="mt-2 text-xs text-muted-foreground">Without this step, watching ads will NOT add balance. Do this once and you're done forever.</p>
+        <ol className="mt-3 space-y-2 text-xs list-decimal list-inside text-muted-foreground">
+          <li>Open <a className="text-primary underline" href="https://monetag.com/" target="_blank" rel="noreferrer">monetag.com</a> → log in → <b>Sites & Zones</b>.</li>
+          <li>Click your zone <b>11040287</b> → scroll to <b>Postback URL</b> (or <b>S2S Postback</b>).</li>
+          <li>Paste the URL below into that field and <b>Save</b>.</li>
+          <li>Come back here, open <b>/watch</b>, watch one ad, and confirm your balance went up.</li>
+        </ol>
+        <div className="mt-3 flex gap-2">
+          <Input
+            readOnly
+            value={postbackUrl ? (showUrl ? postbackUrl : postbackUrl.replace(/token=[^&]+/, "token=••••••••")) : "Loading…"}
+            className="font-mono text-[10px]"
+            onFocus={(e) => e.currentTarget.select()}
+          />
+          <Button size="sm" variant="outline" onClick={() => setShowUrl(s => !s)}>{showUrl ? "Hide" : "Show"}</Button>
+          <Button size="sm" onClick={copyUrl} disabled={!postbackUrl}>Copy</Button>
+        </div>
+        <p className="mt-2 text-[10px] text-amber-400/80">⚠️ This URL contains your secret token. Never share it publicly — only paste into Monetag's dashboard.</p>
+      </div>
+
       {settings && (
         <div className="mt-5 glass rounded-2xl p-4">
           <h3 className="mb-3 text-sm font-semibold">{t("settings")}</h3>
