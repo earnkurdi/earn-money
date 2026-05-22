@@ -19,6 +19,8 @@ function Admin() {
   const [settings, setSettings] = useState<any>(null);
   const [txids, setTxids] = useState<Record<string, string>>({});
   const [bootBusy, setBootBusy] = useState(false);
+  const [postbackUrl, setPostbackUrl] = useState<string>("");
+  const [showUrl, setShowUrl] = useState(false);
 
   useEffect(() => { if (!loading && !user) nav({ to: "/auth" }); }, [loading, user]);
 
@@ -40,6 +42,18 @@ function Admin() {
     setWithdrawals(w.data ?? []); setSettings(s.data);
   };
   useEffect(() => { if (isAdmin) load(); }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    supabase.functions.invoke("get-postback-url").then(({ data }) => {
+      if ((data as any)?.url) setPostbackUrl((data as any).url);
+    });
+  }, [isAdmin]);
+
+  const copyUrl = async () => {
+    try { await navigator.clipboard.writeText(postbackUrl); toast.success("Copied!"); }
+    catch { toast.error("Copy failed — long-press to select"); }
+  };
 
   const bootstrap = async () => {
     setBootBusy(true);
