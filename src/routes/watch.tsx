@@ -10,7 +10,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/watch")({ component: Watch });
 
-declare global { interface Window { show_monetag?: any; } }
+declare global { interface Window { show_11040287?: (opts?: any) => Promise<void>; } }
 
 function Watch() {
   const { user, loading } = useAuth();
@@ -41,8 +41,8 @@ function Watch() {
       // Ask Monetag SDK to show a rewarded interstitial.
       // Their SDK is configured server-side to POST an S2S postback to /ad-postback
       // with the user's id as zone-sub. We pass the user id as ymid/sub.
-      if (typeof window !== "undefined" && typeof window.show_monetag === "function") {
-        await window.show_monetag({ type: "end", ymid: user!.id });
+      if (typeof window !== "undefined" && typeof window.show_11040287 === "function") {
+        await window.show_11040287({ type: "end", ymid: user!.id });
       } else {
         // SDK not loaded — refuse to credit. We never simulate ad watches.
         toast.error(t("ad_failed") + " — " + t("ad_blocked_note"));
