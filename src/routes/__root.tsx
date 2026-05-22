@@ -63,6 +63,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" },
     ],
+    scripts: [
+      // Monetag Rewarded Interstitial SDK (zone 11040287). Exposes window.show_11040287().
+      { src: "//libtl.com/sdk.js", async: true, "data-zone": "11040287", "data-sdk": "show_11040287" } as any,
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
