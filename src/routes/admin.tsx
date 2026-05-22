@@ -19,6 +19,8 @@ function Admin() {
   const [settings, setSettings] = useState<any>(null);
   const [txids, setTxids] = useState<Record<string, string>>({});
   const [bootBusy, setBootBusy] = useState(false);
+  const [postbackUrl, setPostbackUrl] = useState<string>("");
+  const [showUrl, setShowUrl] = useState(false);
 
   useEffect(() => { if (!loading && !user) nav({ to: "/auth" }); }, [loading, user]);
 
@@ -40,6 +42,18 @@ function Admin() {
     setWithdrawals(w.data ?? []); setSettings(s.data);
   };
   useEffect(() => { if (isAdmin) load(); }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    supabase.functions.invoke("get-postback-url").then(({ data }) => {
+      if ((data as any)?.url) setPostbackUrl((data as any).url);
+    });
+  }, [isAdmin]);
+
+  const copyUrl = async () => {
+    try { await navigator.clipboard.writeText(postbackUrl); toast.success("Copied!"); }
+    catch { toast.error("Copy failed — long-press to select"); }
+  };
 
   const bootstrap = async () => {
     setBootBusy(true);
@@ -83,6 +97,30 @@ function Admin() {
             <div className="mt-1 text-xl font-bold">{v as any}</div>
           </div>
         ))}
+      </div>
+
+
+
+      <div className="mt-5 glass rounded-2xl p-4 border border-primary/30">
+        <h3 className="text-sm font-semibold flex items-center gap-2">🎯 Monetag Setup <span className="text-[10px] px-2 py-0.5 rounded bg-primary/20 text-primary">REQUIRED</span></h3>
+        <p className="mt-2 text-xs text-muted-foreground">Without this step, watching ads will NOT add balance. Do this once and you're done forever.</p>
+        <ol className="mt-3 space-y-2 text-xs list-decimal list-inside text-muted-foreground">
+          <li>Open <a className="text-primary underline" href="https://monetag.com/" target="_blank" rel="noreferrer">monetag.com</a> → log in → <b>Sites & Zones</b>.</li>
+          <li>Click your zone <b>11040287</b> → scroll to <b>Postback URL</b> (or <b>S2S Postback</b>).</li>
+          <li>Paste the URL below into that field and <b>Save</b>.</li>
+          <li>Come back here, open <b>/watch</b>, watch one ad, and confirm your balance went up.</li>
+        </ol>
+        <div className="mt-3 flex gap-2">
+          <Input
+            readOnly
+            value={postbackUrl ? (showUrl ? postbackUrl : postbackUrl.replace(/token=[^&]+/, "token=••••••••")) : "Loading…"}
+            className="font-mono text-[10px]"
+            onFocus={(e) => e.currentTarget.select()}
+          />
+          <Button size="sm" variant="outline" onClick={() => setShowUrl(s => !s)}>{showUrl ? "Hide" : "Show"}</Button>
+          <Button size="sm" onClick={copyUrl} disabled={!postbackUrl}>Copy</Button>
+        </div>
+        <p className="mt-2 text-[10px] text-amber-400/80">⚠️ This URL contains your secret token. Never share it publicly — only paste into Monetag's dashboard.</p>
       </div>
 
       {settings && (
