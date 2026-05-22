@@ -10,15 +10,6 @@ const cors = {
   "Access-Control-Allow-Headers": "*",
 };
 
-async function hmac(secret: string, msg: string) {
-  const key = await crypto.subtle.importKey(
-    "raw", new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(msg));
-  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
 function eq(a: string, b: string) {
   if (a.length !== b.length) return false;
   let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
@@ -35,11 +26,9 @@ Deno.serve(async (req) => {
     const user = url.searchParams.get("user") || "";
     const rewardId = url.searchParams.get("reward_id") || "";
     const provider = (url.searchParams.get("provider") || "unknown").toLowerCase();
-    const sig = url.searchParams.get("sig") || "";
-    if (!user || !rewardId || !sig) return new Response("bad-request", { status: 400, headers: cors });
-
-    const expected = await hmac(secret, `${user}|${rewardId}|${provider}`);
-    if (!eq(expected, sig.toLowerCase())) return new Response("forbidden", { status: 403, headers: cors });
+    const token = url.searchParams.get("token") || "";
+    if (!user || !rewardId || !token) return new Response("bad-request", { status: 400, headers: cors });
+    if (!eq(token, secret)) return new Response("forbidden", { status: 403, headers: cors });
 
     const supa = createClient(
       Deno.env.get("SUPABASE_URL")!,
