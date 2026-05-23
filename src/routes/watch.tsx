@@ -12,6 +12,35 @@ export const Route = createFileRoute("/watch")({ component: Watch });
 
 declare global { interface Window { show_11040287?: (opts?: any) => Promise<void>; } }
 
+const MONETAG_ZONE = "11040287";
+
+async function loadMonetagSdk() {
+  if (typeof window === "undefined") return false;
+  if (typeof window.show_11040287 === "function") return true;
+
+  await new Promise<void>((resolve) => {
+    const existing = document.querySelector<HTMLScriptElement>(`script[data-sdk="show_${MONETAG_ZONE}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => resolve(), { once: true });
+      setTimeout(resolve, 2500);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://libtl.com/sdk.js";
+    script.async = true;
+    script.dataset.zone = MONETAG_ZONE;
+    script.dataset.sdk = `show_${MONETAG_ZONE}`;
+    script.onload = () => resolve();
+    script.onerror = () => resolve();
+    document.head.appendChild(script);
+    setTimeout(resolve, 2500);
+  });
+
+  return typeof window.show_11040287 === "function";
+}
+
 function Watch() {
   const { user, loading } = useAuth();
   const { t } = useT();
@@ -38,11 +67,12 @@ function Watch() {
     if (adsToday >= cap) { toast.error(t("daily_limit_hit")); return; }
     setBusy(true);
     try {
+      const sdkReady = await loadMonetagSdk();
       // Ask Monetag SDK to show a rewarded interstitial.
       // Their SDK is configured server-side to POST an S2S postback to /ad-postback
       // with the user's id as zone-sub. We pass the user id as ymid/sub.
-      if (typeof window !== "undefined" && typeof window.show_11040287 === "function") {
-        await window.show_11040287({ type: "end", ymid: user!.id });
+      if (sdkReady && typeof window.show_11040287 === "function") {
+        await window.show_11040287({ type: "end", ymid: user!.id, requestVar: `watch_${Date.now()}` });
       } else {
         // SDK not loaded — refuse to credit. We never simulate ad watches.
         toast.error(t("ad_failed") + " — " + t("ad_blocked_note"));
