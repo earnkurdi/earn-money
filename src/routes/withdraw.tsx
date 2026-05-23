@@ -44,13 +44,18 @@ function Withdraw() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const amt = Number(amount);
+    const have = Number(balance?.balance_usd ?? 0);
+    if (have <= 0) { toast.error("Your balance is $0. Watch ads or claim the daily bonus first."); return; }
+    if (amt < min) { toast.error(`Minimum withdrawal is $${min.toFixed(2)}`); return; }
+    if (amt > have) { toast.error(`Insufficient balance. You have $${have.toFixed(4)}`); return; }
     setBusy(true);
     const { data, error } = await supabase.functions.invoke("request-withdrawal", {
-      body: { method, destination, amount: Number(amount) },
+      body: { method, destination, amount: amt },
     });
     setBusy(false);
     if (error || (data as any)?.error) toast.error((data as any)?.error || error?.message || "Failed");
-    else { toast.success("Requested"); setAmount(""); setDestination(""); load(); }
+    else { toast.success("Withdrawal requested!"); setAmount(""); setDestination(""); load(); }
   };
 
   return (
