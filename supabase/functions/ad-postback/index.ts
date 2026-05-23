@@ -7,13 +7,81 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 function eq(a: string, b: string) {
   if (a.length !== b.length) return false;
   let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return d === 0;
+}
+
+async function creditReward(supa: any, req: Request, user: string, rewardId: string, provider: string) {
+  if (!user || !rewardId) return new Response("bad-request", { status: 400, headers: cors });
+
+  // Check banned + load reward + check daily cap
+  const [{ data: profile }, { data: settings }] = await Promise.all([
+    supa.from("profiles").select("is_banned, referred_by").eq("id", user).maybeSingle(),
+    supa.from("app_settings").select("*").eq("id", 1).maybeSingle(),
+  ]);
+  if (!profile) return new Response("no-user", { status: 404, headers: cors });
+  if (profile.is_banned) return new Response("banned", { status: 403, headers: cors });
+
+  const startOfDay = new Date(); startOfDay.setUTCHours(0, 0, 0, 0);
+  const { count } = await supa.from("ad_watches").select("id", { count: "exact", head: true })
+    .eq("user_id", user).gte("created_at", startOfDay.toISOString());
+  if ((count ?? 0) >= (settings?.daily_ad_cap ?? 50)) {
+    return new Response("daily-cap", { status: 429, headers: cors });
+  }
+
+  const reward = Number(settings?.reward_per_ad_usd ?? 0.002);
+  const ip = req.headers.get("x-forwarded-for") ?? "";
+  const ua = req.headers.get("user-agent") ?? "";
+
+  // Insert idempotently by postback_id (unique constraint)
+  const { error: insErr } = await supa.from("ad_watches").insert({
+    user_id: user, provider, reward_usd: reward, postback_id: `${provider}:${rewardId}`, ip, user_agent: ua,
+  });
+  if (insErr) {
+    if ((insErr as any).code === "23505") return new Response("duplicate", { status: 200, headers: cors });
+    throw insErr;
+  }
+
+  // Credit user balance + lifetime
+  const { data: bal } = await supa.from("balances").select("*").eq("user_id", user).maybeSingle();
+  await supa.from("balances").upsert({
+    user_id: user,
+    balance_usd: Number(bal?.balance_usd ?? 0) + reward,
+    lifetime_earned_usd: Number(bal?.lifetime_earned_usd ?? 0) + reward,
+    pending_withdraw_usd: Number(bal?.pending_withdraw_usd ?? 0),
+    updated_at: new Date().toISOString(),
+  });
+
+  // Referral commission
+  if (profile.referred_by) {
+    const pct = Number(settings?.referral_percent ?? 10) / 100;
+    const bonus = +(reward * pct).toFixed(6);
+    if (bonus > 0) {
+      const { data: rb } = await supa.from("balances").select("*").eq("user_id", profile.referred_by).maybeSingle();
+      await supa.from("balances").upsert({
+        user_id: profile.referred_by,
+        balance_usd: Number(rb?.balance_usd ?? 0) + bonus,
+        lifetime_earned_usd: Number(rb?.lifetime_earned_usd ?? 0) + bonus,
+        pending_withdraw_usd: Number(rb?.pending_withdraw_usd ?? 0),
+        updated_at: new Date().toISOString(),
+      });
+      const { data: existing } = await supa.from("referrals").select("id, commission_earned_usd")
+        .eq("referrer_id", profile.referred_by).eq("referred_id", user).maybeSingle();
+      if (existing) {
+        await supa.from("referrals").update({
+          commission_earned_usd: Number(existing.commission_earned_usd) + bonus,
+        }).eq("id", existing.id);
+      }
+    }
+  }
+
+  // Most ad networks expect a 200 with "1" or "ok"
+  return new Response("1", { status: 200, headers: cors });
 }
 
 Deno.serve(async (req) => {
