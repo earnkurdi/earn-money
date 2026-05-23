@@ -65,7 +65,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     scripts: [
       // Monetag Rewarded Interstitial SDK (zone 11040287). Exposes window.show_11040287().
-      { src: "//libtl.com/sdk.js", async: true, "data-zone": "11040287", "data-sdk": "show_11040287" } as any,
+      { src: "https://libtl.com/sdk.js", async: true, "data-zone": "11040287", "data-sdk": "show_11040287" } as any,
     ],
   }),
   shellComponent: RootShell,
