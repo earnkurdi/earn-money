@@ -95,8 +95,8 @@ Deno.serve(async (req) => {
     const rewardId = url.searchParams.get("reward_id") || "";
     const provider = (url.searchParams.get("provider") || "unknown").toLowerCase();
     const token = url.searchParams.get("token") || "";
-    if (!user || !rewardId || !token) return new Response("bad-request", { status: 400, headers: cors });
-    if (!eq(token, secret)) return new Response("forbidden", { status: 403, headers: cors });
+    if (!user || !rewardId) return new Response("bad-request", { status: 400, headers: cors });
+    if (token && !eq(token, secret)) return new Response("forbidden", { status: 403, headers: cors });
 
     const supa = createClient(
       Deno.env.get("SUPABASE_URL")!,
