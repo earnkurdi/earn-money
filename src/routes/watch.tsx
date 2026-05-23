@@ -77,7 +77,12 @@ function Watch() {
       // Their SDK is configured server-side to POST an S2S postback to /ad-postback
       // with the user's id as zone-sub. We pass the user id as ymid/sub.
       if (sdkReady && typeof window.show_11040287 === "function") {
-        await window.show_11040287({ type: "end", ymid: user!.id, requestVar: crypto.randomUUID() });
+        const rewardId = crypto.randomUUID();
+        await window.show_11040287({ type: "end", ymid: user!.id, requestVar: rewardId });
+        const { data: authData } = await supabase.auth.getSession();
+        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ad-postback?user=${user!.id}&reward_id=${rewardId}&provider=monetag`, {
+          headers: { Authorization: `Bearer ${authData.session?.access_token ?? ""}` },
+        });
       } else {
         // SDK not loaded — refuse to credit. We never simulate ad watches.
         toast.error(t("ad_failed") + " — " + t("ad_blocked_note"));
