@@ -19,6 +19,9 @@ Deno.serve(async (req) => {
     const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // Check current admin count
+    const { data: currentRoles } = await supa.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin");
+    if ((currentRoles?.length ?? 0) > 0) return json({ ok: true, alreadyAdmin: true });
+
     const { count } = await supa.from("user_roles").select("id", { count: "exact", head: true }).eq("role", "admin");
     if ((count ?? 0) > 0) return json({ error: "already-bootstrapped" }, 403);
 
