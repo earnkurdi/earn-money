@@ -21,12 +21,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
       setLoading(false);
-      if (s?.user) {
-        setTimeout(async () => {
-          const { data } = await supabase.from("user_roles").select("role").eq("user_id", s.user.id);
-          setIsAdmin(!!data?.some((r: any) => r.role === "admin"));
-        }, 0);
-      } else setIsAdmin(false);
     });
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -34,6 +28,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) {
+      setIsAdmin(false);
+      return;
+    }
+
+    let cancelled = false;
+    const loadRole = async () => {
+      const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+      if (!cancelled) setIsAdmin(!error && !!data?.some((r: any) => r.role === "admin"));
+    };
+    loadRole();
+
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
 
   return (
     <Ctx.Provider value={{ user: session?.user ?? null, session, loading, isAdmin, signOut: async () => { await supabase.auth.signOut(); } }}>

@@ -59,7 +59,9 @@ function Admin() {
     setBootBusy(true);
     const { data, error } = await supabase.functions.invoke("bootstrap-admin");
     setBootBusy(false);
-    if (error || (data as any)?.error) toast.error((data as any)?.error || error?.message || "Failed");
+    if ((data as any)?.error === "already-bootstrapped") {
+      toast.error("An admin already exists. Your account is already admin; sign out/in or refresh.");
+    } else if (error || (data as any)?.error) toast.error((data as any)?.error || error?.message || "Failed");
     else { toast.success("You are admin. Reloading…"); setTimeout(() => location.reload(), 800); }
   };
 
@@ -76,7 +78,7 @@ function Admin() {
       <AppShell>
         <div className="glass mt-6 rounded-2xl p-6 text-center">
           <h2 className="text-lg font-bold">{t("admin")}</h2>
-          <p className="mt-2 text-sm text-muted-foreground">If no admin exists yet, claim it now.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Your owner account is already set as admin. If this panel does not open, sign out and sign back in.</p>
           <Button onClick={bootstrap} disabled={bootBusy} className="mt-4">Claim admin</Button>
         </div>
       </AppShell>

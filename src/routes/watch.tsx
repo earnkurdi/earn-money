@@ -12,6 +12,40 @@ export const Route = createFileRoute("/watch")({ component: Watch });
 
 declare global { interface Window { show_11040287?: (opts?: any) => Promise<void>; } }
 
+const MONETAG_ZONE = "11040287";
+const SDK_SELECTOR = `script[data-sdk="show_${MONETAG_ZONE}"]`;
+
+async function loadMonetagSdk() {
+  if (typeof window === "undefined") return false;
+  if (typeof window.show_11040287 === "function") return true;
+
+  await new Promise<void>((resolve) => {
+    const existing = document.querySelector<HTMLScriptElement>(SDK_SELECTOR);
+    if (existing) {
+      if (existing.dataset.loaded === "true" || existing.dataset.failed === "true") {
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => resolve(), { once: true });
+      setTimeout(resolve, 2500);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://libtl.com/sdk.js";
+    script.async = true;
+    script.dataset.zone = MONETAG_ZONE;
+    script.dataset.sdk = `show_${MONETAG_ZONE}`;
+    script.onload = () => { script.dataset.loaded = "true"; resolve(); };
+    script.onerror = () => { script.dataset.failed = "true"; resolve(); };
+    document.head.appendChild(script);
+    setTimeout(resolve, 2500);
+  });
+
+  return typeof window.show_11040287 === "function";
+}
+
 function Watch() {
   const { user, loading } = useAuth();
   const { t } = useT();
@@ -38,11 +72,17 @@ function Watch() {
     if (adsToday >= cap) { toast.error(t("daily_limit_hit")); return; }
     setBusy(true);
     try {
+      const sdkReady = await loadMonetagSdk();
       // Ask Monetag SDK to show a rewarded interstitial.
       // Their SDK is configured server-side to POST an S2S postback to /ad-postback
       // with the user's id as zone-sub. We pass the user id as ymid/sub.
-      if (typeof window !== "undefined" && typeof window.show_11040287 === "function") {
-        await window.show_11040287({ type: "end", ymid: user!.id });
+      if (sdkReady && typeof window.show_11040287 === "function") {
+        const rewardId = crypto.randomUUID();
+        await window.show_11040287({ type: "end", ymid: user!.id, requestVar: rewardId });
+        const { data: authData } = await supabase.auth.getSession();
+        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ad-postback?user=${user!.id}&reward_id=${rewardId}&provider=monetag`, {
+          headers: { Authorization: `Bearer ${authData.session?.access_token ?? ""}` },
+        });
       } else {
         // SDK not loaded — refuse to credit. We never simulate ad watches.
         toast.error(t("ad_failed") + " — " + t("ad_blocked_note"));
@@ -52,7 +92,10 @@ function Watch() {
       await new Promise(r => setTimeout(r, 2500));
       await reload();
       toast.success(t("ad_reward_credited"));
-    } catch (e: any) { toast.error(e.message ?? t("ad_failed")); }
+    } catch (e: any) {
+      const message = String(e?.message ?? "");
+      toast.error(message.toLowerCase().includes("network") ? `${t("ad_failed")} — ${t("ad_blocked_note")}` : (message || t("ad_failed")));
+    }
     finally { setBusy(false); }
   };
 
