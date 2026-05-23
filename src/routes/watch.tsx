@@ -13,14 +13,19 @@ export const Route = createFileRoute("/watch")({ component: Watch });
 declare global { interface Window { show_11040287?: (opts?: any) => Promise<void>; } }
 
 const MONETAG_ZONE = "11040287";
+const SDK_SELECTOR = `script[data-sdk="show_${MONETAG_ZONE}"]`;
 
 async function loadMonetagSdk() {
   if (typeof window === "undefined") return false;
   if (typeof window.show_11040287 === "function") return true;
 
   await new Promise<void>((resolve) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[data-sdk="show_${MONETAG_ZONE}"]`);
+    const existing = document.querySelector<HTMLScriptElement>(SDK_SELECTOR);
     if (existing) {
+      if (existing.dataset.loaded === "true" || existing.dataset.failed === "true") {
+        resolve();
+        return;
+      }
       existing.addEventListener("load", () => resolve(), { once: true });
       existing.addEventListener("error", () => resolve(), { once: true });
       setTimeout(resolve, 2500);
@@ -32,8 +37,8 @@ async function loadMonetagSdk() {
     script.async = true;
     script.dataset.zone = MONETAG_ZONE;
     script.dataset.sdk = `show_${MONETAG_ZONE}`;
-    script.onload = () => resolve();
-    script.onerror = () => resolve();
+    script.onload = () => { script.dataset.loaded = "true"; resolve(); };
+    script.onerror = () => { script.dataset.failed = "true"; resolve(); };
     document.head.appendChild(script);
     setTimeout(resolve, 2500);
   });
