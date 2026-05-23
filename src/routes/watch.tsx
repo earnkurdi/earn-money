@@ -82,7 +82,10 @@ function Watch() {
       await new Promise(r => setTimeout(r, 2500));
       await reload();
       toast.success(t("ad_reward_credited"));
-    } catch (e: any) { toast.error(e.message ?? t("ad_failed")); }
+    } catch (e: any) {
+      const message = String(e?.message ?? "");
+      toast.error(message.toLowerCase().includes("network") ? `${t("ad_failed")} — ${t("ad_blocked_note")}` : (message || t("ad_failed")));
+    }
     finally { setBusy(false); }
   };
 
