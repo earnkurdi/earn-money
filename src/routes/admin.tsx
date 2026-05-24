@@ -11,7 +11,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/admin")({ component: Admin });
 
 function Admin() {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, isAdmin, loading, refreshRole } = useAuth();
   const { t } = useT();
   const nav = useNavigate();
   const [stats, setStats] = useState<any>({});
@@ -62,7 +62,7 @@ function Admin() {
     if ((data as any)?.error === "already-bootstrapped") {
       toast.error("An admin already exists. Your account is already admin; sign out/in or refresh.");
     } else if (error || (data as any)?.error) toast.error((data as any)?.error || error?.message || "Failed");
-    else { toast.success("You are admin. Reloading…"); setTimeout(() => location.reload(), 800); }
+    else { await refreshRole(); toast.success("You are admin. Admin panel is loading…"); load(); }
   };
 
   const action = async (body: any) => {
