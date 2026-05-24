@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PlayCircle, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -10,14 +10,24 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/watch")({ component: Watch });
 
-declare global { interface Window { show_11040287?: (opts?: any) => Promise<void>; } }
+type MonetagResult = {
+  reward_event_type?: "valued" | "non_valued";
+  estimated_price?: number;
+  request_var?: string;
+  ymid?: string;
+};
+
+declare global { interface Window { show_11040287?: (opts?: any) => Promise<MonetagResult>; } }
 
 const MONETAG_ZONE = "11040287";
 const SDK_SELECTOR = `script[data-sdk="show_${MONETAG_ZONE}"]`;
 
 async function loadMonetagSdk() {
   if (typeof window === "undefined") return false;
-  if (typeof window.show_11040287 === "function") return true;
+  if (typeof window.show_11040287 === "function") {
+    console.log("[Earn][Monetag] SDK already loaded", { zone: MONETAG_ZONE });
+    return true;
+  }
 
   await new Promise<void>((resolve) => {
     const existing = document.querySelector<HTMLScriptElement>(SDK_SELECTOR);
@@ -26,24 +36,27 @@ async function loadMonetagSdk() {
         resolve();
         return;
       }
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => resolve(), { once: true });
-      setTimeout(resolve, 2500);
+      existing.addEventListener("load", () => { existing.dataset.loaded = "true"; resolve(); }, { once: true });
+      existing.addEventListener("error", () => { existing.dataset.failed = "true"; resolve(); }, { once: true });
+      setTimeout(resolve, 6000);
       return;
     }
 
+    console.log("[Earn][Monetag] loading SDK", { zone: MONETAG_ZONE, src: "https://libtl.com/sdk.js" });
     const script = document.createElement("script");
     script.src = "https://libtl.com/sdk.js";
     script.async = true;
     script.dataset.zone = MONETAG_ZONE;
     script.dataset.sdk = `show_${MONETAG_ZONE}`;
-    script.onload = () => { script.dataset.loaded = "true"; resolve(); };
-    script.onerror = () => { script.dataset.failed = "true"; resolve(); };
+    script.onload = () => { script.dataset.loaded = "true"; console.log("[Earn][Monetag] SDK loaded", { zone: MONETAG_ZONE }); resolve(); };
+    script.onerror = () => { script.dataset.failed = "true"; console.error("[Earn][Monetag] SDK failed to load", { zone: MONETAG_ZONE }); resolve(); };
     document.head.appendChild(script);
-    setTimeout(resolve, 2500);
+    setTimeout(resolve, 6000);
   });
 
-  return typeof window.show_11040287 === "function";
+  const ready = typeof window.show_11040287 === "function";
+  console.log("[Earn][Monetag] SDK ready check", { ready, zone: MONETAG_ZONE });
+  return ready;
 }
 
 function Watch() {
