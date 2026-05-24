@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -22,17 +22,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      setRoleLoading(!!s?.user);
       setSession(s);
       setLoading(false);
     });
     supabase.auth.getSession().then(({ data }) => {
+      setRoleLoading(!!data.session?.user);
       setSession(data.session);
       setLoading(false);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const refreshRole = async () => {
+  const refreshRole = useCallback(async () => {
     const userId = session?.user?.id;
     if (!userId) {
       setIsAdmin(false);
@@ -47,17 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAdmin(nextIsAdmin);
     setRoleLoading(false);
     return nextIsAdmin;
-  };
+  }, [session?.user?.id]);
 
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
-      const nextIsAdmin = await refreshRole();
-      if (cancelled) setIsAdmin(nextIsAdmin);
+      if (!cancelled) await refreshRole();
     };
     run();
     return () => { cancelled = true; };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, refreshRole]);
 
   return (
     <Ctx.Provider value={{ user: session?.user ?? null, session, loading: loading || roleLoading, roleLoading, isAdmin, refreshRole, signOut: async () => { await supabase.auth.signOut(); } }}>
