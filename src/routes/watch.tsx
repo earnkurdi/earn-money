@@ -138,6 +138,22 @@ function Watch() {
 
         <p className="mt-6 text-[10px] leading-relaxed text-muted-foreground">{t("legal_note")}</p>
       </div>
+
+      <div className="mt-5">
+        <h3 className="mb-2 text-sm font-semibold">{t("ad_history")}</h3>
+        <div className="space-y-2">
+          {adHistory.length === 0 && <p className="text-xs text-muted-foreground">{t("no_data")}</p>}
+          {adHistory.map((ad) => (
+            <div key={ad.id} className="glass flex items-center justify-between rounded-xl p-3 text-sm">
+              <div>
+                <div className="font-semibold">${Number(ad.reward_usd).toFixed(4)} · {ad.provider}</div>
+                <div className="text-[10px] text-muted-foreground">{new Date(ad.created_at).toLocaleString()}</div>
+              </div>
+              <span className="rounded-md bg-success/20 px-2 py-1 text-xs text-success">OK</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </AppShell>
   );
 }
