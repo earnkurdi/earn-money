@@ -67,18 +67,21 @@ function Watch() {
   const [perAd, setPerAd] = useState(0);
   const [cap, setCap] = useState(50);
   const [adsToday, setAdsToday] = useState(0);
+  const [adHistory, setAdHistory] = useState<any[]>([]);
 
   useEffect(() => { if (!loading && !user) nav({ to: "/auth" }); }, [loading, user]);
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     if (!user) return;
-    const [s, w] = await Promise.all([
+    const [s, w, h] = await Promise.all([
       supabase.from("app_settings").select("reward_per_ad_usd, daily_ad_cap").eq("id", 1).maybeSingle(),
       supabase.from("ad_watches").select("id", { count: "exact", head: true })
         .eq("user_id", user.id).gte("created_at", new Date(new Date().setHours(0,0,0,0)).toISOString()),
+      supabase.from("ad_watches").select("id, provider, reward_usd, postback_id, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
     ]);
     setPerAd(Number(s.data?.reward_per_ad_usd ?? 0)); setCap(s.data?.daily_ad_cap ?? 50); setAdsToday(w.count ?? 0);
-  };
+    setAdHistory(h.data ?? []);
+  }, [user]);
   useEffect(() => { reload(); }, [user]);
 
   const watch = async () => {
