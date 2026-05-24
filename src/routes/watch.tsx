@@ -22,6 +22,11 @@ declare global { interface Window { show_11040287?: (opts?: any) => Promise<Mone
 const MONETAG_ZONE = "11040287";
 const SDK_SELECTOR = `script[data-sdk="show_${MONETAG_ZONE}"]`;
 
+function createRewardId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 async function loadMonetagSdk() {
   if (typeof window === "undefined") return false;
   if (typeof window.show_11040287 === "function") {
@@ -70,6 +75,7 @@ function Watch() {
   const [adHistory, setAdHistory] = useState<any[]>([]);
 
   useEffect(() => { if (!loading && !user) nav({ to: "/auth" }); }, [loading, user]);
+  useEffect(() => { if (user) void loadMonetagSdk(); }, [user]);
 
   const reload = useCallback(async () => {
     if (!user) return;
@@ -89,28 +95,31 @@ function Watch() {
     setBusy(true);
     try {
       const sdkReady = await loadMonetagSdk();
-      // Ask Monetag SDK to show a rewarded interstitial.
-      // Their SDK is configured server-side to POST an S2S postback to /ad-postback
-      // with the user's id as zone-sub. We pass the user id as ymid/sub.
-      if (sdkReady && typeof window.show_11040287 === "function") {
-        const rewardId = crypto.randomUUID();
-        await window.show_11040287({ type: "end", ymid: user!.id, requestVar: rewardId });
-        const { data: authData } = await supabase.auth.getSession();
-        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ad-postback?user=${user!.id}&reward_id=${rewardId}&provider=monetag`, {
-          headers: { Authorization: `Bearer ${authData.session?.access_token ?? ""}` },
-        });
-      } else {
-        // SDK not loaded — refuse to credit. We never simulate ad watches.
-        toast.error(t("ad_failed") + " — " + t("ad_blocked_note"));
-        setBusy(false); return;
-      }
-      // Wait a moment for the postback to land, then refresh.
-      await new Promise(r => setTimeout(r, 2500));
+      if (!sdkReady || typeof window.show_11040287 !== "function") { toast.error(t("ad_sdk_unavailable")); return; }
+      const rewardId = createRewardId();
+      console.log("[Earn][Monetag] ad requested", { zone: MONETAG_ZONE, userId: user!.id, rewardId });
+      const result = await window.show_11040287({ type: "end", ymid: user!.id, requestVar: rewardId, catchIfNoFeed: true });
+      console.log("[Earn][Monetag] ad opened/finished", { zone: MONETAG_ZONE, rewardId, result });
+      if (result?.reward_event_type && result.reward_event_type !== "valued") { toast.error(t("ad_unavailable")); return; }
+
+      const { data: authData } = await supabase.auth.getSession();
+      const token = authData.session?.access_token;
+      if (!token) throw new Error("Missing user session");
+      const backendRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ad-postback?user=${encodeURIComponent(user!.id)}&reward_id=${encodeURIComponent(rewardId)}&provider=monetag`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const backendText = await backendRes.text();
+      console.log("[Earn][Monetag] backend response", { rewardId, status: backendRes.status, body: backendText });
+      if (!backendRes.ok) throw new Error(backendText || t("reward_credit_failed"));
+      const { data: saved, error: savedError } = await supabase.from("ad_watches").select("id, reward_usd").eq("user_id", user!.id).eq("postback_id", `monetag:${rewardId}`).maybeSingle();
+      if (savedError || !saved) throw new Error(t("reward_credit_failed"));
+      console.log("[Earn][Monetag] reward credited", { rewardId, rewardUsd: saved.reward_usd, adWatchId: saved.id });
       await reload();
       toast.success(t("ad_reward_credited"));
     } catch (e: any) {
+      console.error("[Earn][Monetag] ad flow failed", e);
       const message = String(e?.message ?? "");
-      toast.error(message.toLowerCase().includes("network") ? `${t("ad_failed")} — ${t("ad_blocked_note")}` : (message || t("ad_failed")));
+      toast.error(message.toLowerCase().includes("network") || message.toLowerCase().includes("no feed") || message.toLowerCase().includes("failed to fetch") ? t("ad_unavailable") : (message || t("ad_failed")));
     }
     finally { setBusy(false); }
   };
