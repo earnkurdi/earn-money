@@ -51,6 +51,10 @@ export const dict = {
   switch_lang: { ku: "English", en: "کوردی" },
   ad_failed: { ku: "ڕێکلامەکە نەهات، دواتر هەوڵبدەرەوە", en: "Ad failed to load, try again" },
   ad_blocked_note: { ku: "تکایە ad-block بکوژێنەرەوە", en: "Please disable ad-block" },
+  ad_sdk_unavailable: { ku: "سیستەمی ڕێکلامەکان ئێستا بەردەست نییە، دواتر هەوڵبدەرەوە", en: "The ad system is unavailable right now, try again later" },
+  ad_unavailable: { ku: "ڕێکلامێکی بەردەست نییە، دواتر هەوڵبدەرەوە", en: "No ad is available right now, try again later" },
+  reward_credit_failed: { ku: "پاداشتەکە پشتڕاست نەکرایەوە، دوبارە هەوڵبدەرەوە", en: "Reward could not be verified, try again" },
+  ad_history: { ku: "مێژووی ڕێکلام", en: "Ad history" },
   legal_note: {
     ku: "تەنها بەکارهێنانی ڕاستەقینەی ڕێکلامەکان پاداشت وەردەگرێت. هیچ ئۆتۆ-بەکارهێنانێک نییە. هەژماری دوبارە بلۆک دەکرێت.",
     en: "Only real, voluntary ad views earn rewards. No auto-watching. Duplicate accounts will be banned.",
