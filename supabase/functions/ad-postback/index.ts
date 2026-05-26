@@ -1,7 +1,7 @@
 // Public S2S postback from ad networks (Monetag / Adsterra / PropellerAds / offerwalls).
 // Configure the ad network's postback URL to:
 //   https://<project>.supabase.co/functions/v1/ad-postback
-//     ?user=USER_ID&reward_id=UNIQUE_TX_ID&provider=monetag&sig=HMAC_SHA256(user|reward_id|provider, AD_POSTBACK_SECRET)
+//     ?user={ymid}&reward_id={request_var}&provider=monetag&reward_event_type={reward_event_type}&token=AD_POSTBACK_SECRET
 // We credit the user's balance ONCE per reward_id. Replay attempts are ignored.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -95,23 +95,15 @@ Deno.serve(async (req) => {
     const rewardId = url.searchParams.get("reward_id") || "";
     const provider = (url.searchParams.get("provider") || "unknown").toLowerCase();
     const token = url.searchParams.get("token") || "";
+    const rewardEventType = (url.searchParams.get("reward_event_type") || url.searchParams.get("value") || "").toLowerCase();
     if (!user || !rewardId) return new Response("bad-request", { status: 400, headers: cors });
-    if (token && !eq(token, secret)) return new Response("forbidden", { status: 403, headers: cors });
+    if (!token || !eq(token, secret)) return new Response("forbidden", { status: 403, headers: cors });
+    if (rewardEventType && rewardEventType !== "valued") return new Response("non-valued", { status: 200, headers: cors });
 
     const supa = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-
-    if (!token) {
-      const auth = req.headers.get("Authorization") ?? "";
-      const userClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-        global: { headers: { Authorization: auth } },
-      });
-      const { data: { user: authUser } } = await userClient.auth.getUser();
-      if (!authUser || authUser.id !== user || provider !== "monetag") return new Response("forbidden", { status: 403, headers: cors });
-      return await creditReward(supa, req, user, rewardId, provider);
-    }
 
     return await creditReward(supa, req, user, rewardId, provider);
   } catch (e) {
