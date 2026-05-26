@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     if (!isAdmin) return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { ...cors, "content-type": "application/json" } });
 
     const secret = Deno.env.get("AD_POSTBACK_SECRET") ?? "";
-    const url = `${supaUrl}/functions/v1/ad-postback?user={ymid}&reward_id={request_var}&provider=monetag&token=${secret}`;
+    const url = `${supaUrl}/functions/v1/ad-postback?user={ymid}&reward_id={request_var}&provider=monetag&reward_event_type={reward_event_type}&token=${secret}`;
     return new Response(JSON.stringify({ url }), { headers: { ...cors, "content-type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...cors, "content-type": "application/json" } });
