@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { PlayCircle, ShieldCheck } from "lucide-react";
+import { PlayCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useT } from "@/lib/i18n";
@@ -15,12 +15,19 @@ type MonetagResult = {
   estimated_price?: number;
   request_var?: string;
   ymid?: string;
+  zone_id?: number;
+  sub_zone_id?: number;
 };
 
 declare global { interface Window { show_11040287?: (opts?: any) => Promise<MonetagResult>; } }
 
 const MONETAG_ZONE = "11040287";
 const SDK_SELECTOR = `script[data-sdk="show_${MONETAG_ZONE}"]`;
+const AD_ATTEMPTS: Array<{ label: string; options: Record<string, unknown> }> = [
+  { label: "rewarded-interstitial", options: { type: "end" } },
+  { label: "rewarded-popup", options: { type: "pop" } },
+  { label: "default", options: {} },
+];
 
 function createRewardId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -37,6 +44,8 @@ async function loadMonetagSdk() {
   await new Promise<void>((resolve) => {
     const existing = document.querySelector<HTMLScriptElement>(SDK_SELECTOR);
     if (existing) {
+      if (existing.dataset.failed === "true") existing.remove();
+      else {
       if (existing.dataset.loaded === "true" || existing.dataset.failed === "true") {
         resolve();
         return;
@@ -45,6 +54,7 @@ async function loadMonetagSdk() {
       existing.addEventListener("error", () => { existing.dataset.failed = "true"; resolve(); }, { once: true });
       setTimeout(resolve, 6000);
       return;
+      }
     }
 
     console.log("[Earn][Monetag] loading SDK", { zone: MONETAG_ZONE, src: "https://libtl.com/sdk.js" });
@@ -64,6 +74,26 @@ async function loadMonetagSdk() {
   return ready;
 }
 
+function isEmptyFeedError(error: unknown) {
+  const message = String((error as any)?.message ?? error ?? "").toLowerCase();
+  return message.includes("empty feed") || message.includes("no feed") || message.includes("no ad") || message.includes("feed");
+}
+
+async function waitForServerPostback(userId: string, rewardId: string) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const { data, error } = await supabase
+      .from("ad_watches")
+      .select("id, reward_usd")
+      .eq("user_id", userId)
+      .eq("postback_id", `monetag:${rewardId}`)
+      .maybeSingle();
+    if (data) return data;
+    if (error) throw error;
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+  return null;
+}
+
 function Watch() {
   const { user, loading } = useAuth();
   const { t } = useT();
@@ -73,6 +103,7 @@ function Watch() {
   const [cap, setCap] = useState(50);
   const [adsToday, setAdsToday] = useState(0);
   const [adHistory, setAdHistory] = useState<any[]>([]);
+  const [status, setStatus] = useState<string>("");
 
   useEffect(() => { if (!loading && !user) nav({ to: "/auth" }); }, [loading, user]);
   useEffect(() => { if (user) void loadMonetagSdk(); }, [user]);
@@ -93,33 +124,50 @@ function Watch() {
   const watch = async () => {
     if (adsToday >= cap) { toast.error(t("daily_limit_hit")); return; }
     setBusy(true);
+    setStatus(t("ad_loading_provider"));
     try {
       const sdkReady = await loadMonetagSdk();
       if (!sdkReady || typeof window.show_11040287 !== "function") { toast.error(t("ad_sdk_unavailable")); return; }
       const rewardId = createRewardId();
       console.log("[Earn][Monetag] ad requested", { zone: MONETAG_ZONE, userId: user!.id, rewardId });
-      const result = await window.show_11040287({ type: "end", ymid: user!.id, requestVar: rewardId, catchIfNoFeed: true });
-      console.log("[Earn][Monetag] ad opened/finished", { zone: MONETAG_ZONE, rewardId, result });
-      if (result?.reward_event_type && result.reward_event_type !== "valued") { toast.error(t("ad_unavailable")); return; }
+      let result: MonetagResult | undefined;
+      let shown = false;
+      const errors: string[] = [];
+      for (const attempt of AD_ATTEMPTS) {
+        try {
+          setStatus(t("ad_opening"));
+          result = await window.show_11040287({ ...attempt.options, ymid: user!.id, requestVar: rewardId, catchIfNoFeed: true, timeout: 30000 });
+          shown = true;
+          console.log("[Earn][Monetag] ad attempt finished", { zone: MONETAG_ZONE, rewardId, attempt: attempt.label, result });
+          break;
+        } catch (error) {
+          const message = String((error as any)?.message ?? error ?? attempt.label);
+          errors.push(`${attempt.label}: ${message}`);
+          console.warn("[Earn][Monetag] ad attempt failed", { zone: MONETAG_ZONE, rewardId, attempt: attempt.label, error });
+          if (!isEmptyFeedError(error)) break;
+        }
+      }
+      if (!shown) {
+        console.warn("[Earn][Monetag] all real ad formats unavailable", { zone: MONETAG_ZONE, rewardId, errors });
+        toast.error(t("ad_inventory_empty"));
+        setStatus(t("ad_inventory_empty"));
+        return;
+      }
+      if (result?.reward_event_type === "non_valued") { toast.error(t("ad_not_paid")); setStatus(t("ad_not_paid")); return; }
 
-      const { data: authData } = await supabase.auth.getSession();
-      const token = authData.session?.access_token;
-      if (!token) throw new Error("Missing user session");
-      const backendRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ad-postback?user=${encodeURIComponent(user!.id)}&reward_id=${encodeURIComponent(rewardId)}&provider=monetag`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const backendText = await backendRes.text();
-      console.log("[Earn][Monetag] backend response", { rewardId, status: backendRes.status, body: backendText });
-      if (!backendRes.ok) throw new Error(backendText || t("reward_credit_failed"));
-      const { data: saved, error: savedError } = await supabase.from("ad_watches").select("id, reward_usd").eq("user_id", user!.id).eq("postback_id", `monetag:${rewardId}`).maybeSingle();
-      if (savedError || !saved) throw new Error(t("reward_credit_failed"));
+      setStatus(t("ad_verifying_reward"));
+      const saved = await waitForServerPostback(user!.id, rewardId);
+      if (!saved) throw new Error(t("ad_postback_missing"));
       console.log("[Earn][Monetag] reward credited", { rewardId, rewardUsd: saved.reward_usd, adWatchId: saved.id });
       await reload();
+      setStatus("");
       toast.success(t("ad_reward_credited"));
     } catch (e: any) {
       console.error("[Earn][Monetag] ad flow failed", e);
       const message = String(e?.message ?? "");
-      toast.error(message.toLowerCase().includes("network") || message.toLowerCase().includes("no feed") || message.toLowerCase().includes("failed to fetch") ? t("ad_unavailable") : (message || t("ad_failed")));
+      const safeMessage = message.toLowerCase().includes("network") || message.toLowerCase().includes("no feed") || message.toLowerCase().includes("empty feed") || message.toLowerCase().includes("failed to fetch") ? t("ad_inventory_empty") : (message || t("ad_failed"));
+      setStatus(safeMessage);
+      toast.error(safeMessage);
     }
     finally { setBusy(false); }
   };
@@ -133,8 +181,9 @@ function Watch() {
         <p className="text-xs text-muted-foreground">{t("ads_today")}: {adsToday}/{cap}</p>
 
         <Button onClick={watch} disabled={busy || adsToday >= cap} className="mt-6 w-full glow-primary" size="lg">
-          <PlayCircle className="size-5" /> {busy ? t("watching") : t("watch_ad")}
+          {busy ? <RefreshCw className="size-5 animate-spin" /> : <PlayCircle className="size-5" />} {busy ? t("watching") : t("watch_ad")}
         </Button>
+        {status && <p className="mt-3 text-xs text-muted-foreground">{status}</p>}
 
         <p className="mt-6 text-[10px] leading-relaxed text-muted-foreground">{t("legal_note")}</p>
       </div>

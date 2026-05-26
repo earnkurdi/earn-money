@@ -53,6 +53,12 @@ export const dict = {
   ad_blocked_note: { ku: "تکایە ad-block بکوژێنەرەوە", en: "Please disable ad-block" },
   ad_sdk_unavailable: { ku: "سیستەمی ڕێکلامەکان ئێستا بەردەست نییە، دواتر هەوڵبدەرەوە", en: "The ad system is unavailable right now, try again later" },
   ad_unavailable: { ku: "ڕێکلامێکی بەردەست نییە، دواتر هەوڵبدەرەوە", en: "No ad is available right now, try again later" },
+  ad_loading_provider: { ku: "سیستەمی ڕێکلام بار دەکرێت…", en: "Loading the ad network…" },
+  ad_opening: { ku: "هەوڵدان بۆ کردنەوەی ڕێکلامی ڕاستەقینە…", en: "Opening a real ad…" },
+  ad_inventory_empty: { ku: "هیچ ڕێکلامێکی پارەدار بەردەست نییە. ئەمە لە تۆڕی ڕێکلامەکەوەیە، دواتر هەوڵبدەرەوە.", en: "No paid ad inventory is available from the ad network right now. Try again later." },
+  ad_not_paid: { ku: "ئەم ڕێکلامە پارەدار نەبوو، پاداشت زیاد نەکرا.", en: "This ad was not paid, so no reward was added." },
+  ad_verifying_reward: { ku: "پشتڕاستکردنەوەی پاداشت لە تۆڕی ڕێکلامەکە…", en: "Verifying the reward with the ad network…" },
+  ad_postback_missing: { ku: "ڕێکلام بینرا، بەڵام تۆڕی ڕێکلامەکە پاداشتی پشتڕاستکراوی نەنارد. پاداشت زیاد ناکرێت تا پشتڕاست بێتەوە.", en: "The ad was shown, but the ad network did not send a verified reward. No reward is added until it is verified." },
   reward_credit_failed: { ku: "پاداشتەکە پشتڕاست نەکرایەوە، دوبارە هەوڵبدەرەوە", en: "Reward could not be verified, try again" },
   ad_history: { ku: "مێژووی ڕێکلام", en: "Ad history" },
   legal_note: {
