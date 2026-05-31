@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
     const rewardId = url.searchParams.get("reward_id") || "";
     const provider = (url.searchParams.get("provider") || "unknown").toLowerCase();
     const token = url.searchParams.get("token") || "";
-    const rewardEventType = (url.searchParams.get("reward_event_type") || url.searchParams.get("value") || "").toLowerCase();
+    const rewardEventType = (url.searchParams.get("reward_event_type") || url.searchParams.get("value") || "valued").toLowerCase();
     if (!user || !rewardId) return new Response("bad-request", { status: 400, headers: cors });
     if (!token || !eq(token, secret)) return new Response("forbidden", { status: 403, headers: cors });
     if (rewardEventType !== "valued") return new Response("non-valued", { status: 200, headers: cors });
@@ -112,7 +112,9 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    return await creditReward(supa, req, user, rewardId, provider);
+    const { data: settings } = await supa.from("app_settings").select("reward_per_ad_usd, max_postback_reward_usd").eq("id", 1).maybeSingle();
+    const reward = parseReward(url, settings);
+    return await creditReward(supa, req, user, rewardId, provider, reward);
   } catch (e) {
     console.error("postback error", e);
     return new Response("error", { status: 500, headers: cors });
