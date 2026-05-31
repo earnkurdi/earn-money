@@ -61,6 +61,9 @@ export const dict = {
   ad_postback_missing: { ku: "ڕێکلام بینرا، بەڵام تۆڕی ڕێکلامەکە پاداشتی پشتڕاستکراوی نەنارد. پاداشت زیاد ناکرێت تا پشتڕاست بێتەوە.", en: "The ad was shown, but the ad network did not send a verified reward. No reward is added until it is verified." },
   reward_credit_failed: { ku: "پاداشتەکە پشتڕاست نەکرایەوە، دوبارە هەوڵبدەرەوە", en: "Reward could not be verified, try again" },
   ad_history: { ku: "مێژووی ڕێکلام", en: "Ad history" },
+  offerwall: { ku: "ئۆفەروۆڵی پارەدار", en: "Paid offerwall" },
+  offerwall_opened: { ku: "ئۆفەروۆڵ کرایەوە. پاداشت تەنها کاتێک زیاد دەکرێت کە تۆڕەکە پشتڕاستی بکاتەوە.", en: "Offerwall opened. Reward is added only after the provider verifies it." },
+  offerwall_not_configured: { ku: "ئۆفەروۆڵ هێشتا لە بەشی بەڕێوەبەر ڕێکنەخراوە", en: "Offerwall is not configured in admin yet" },
   legal_note: {
     ku: "تەنها بەکارهێنانی ڕاستەقینەی ڕێکلامەکان پاداشت وەردەگرێت. هیچ ئۆتۆ-بەکارهێنانێک نییە. هەژماری دوبارە بلۆک دەکرێت.",
     en: "Only real, voluntary ad views earn rewards. No auto-watching. Duplicate accounts will be banned.",
