@@ -20,6 +20,7 @@ function Admin() {
   const [txids, setTxids] = useState<Record<string, string>>({});
   const [bootBusy, setBootBusy] = useState(false);
   const [postbackUrl, setPostbackUrl] = useState<string>("");
+  const [offerwallPostbackUrl, setOfferwallPostbackUrl] = useState<string>("");
   const [showUrl, setShowUrl] = useState(false);
 
   useEffect(() => { if (!loading && !user) nav({ to: "/auth" }); }, [loading, user]);
@@ -47,11 +48,12 @@ function Admin() {
     if (!isAdmin) return;
     supabase.functions.invoke("get-postback-url").then(({ data }) => {
       if ((data as any)?.url) setPostbackUrl((data as any).url);
+      if ((data as any)?.offerwallUrl) setOfferwallPostbackUrl((data as any).offerwallUrl);
     });
   }, [isAdmin]);
 
-  const copyUrl = async () => {
-    try { await navigator.clipboard.writeText(postbackUrl); toast.success("Copied!"); }
+  const copyUrl = async (value = postbackUrl) => {
+    try { await navigator.clipboard.writeText(value); toast.success("Copied!"); }
     catch { toast.error("Copy failed — long-press to select"); }
   };
 
