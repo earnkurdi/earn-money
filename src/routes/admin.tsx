@@ -122,9 +122,33 @@ function Admin() {
             onFocus={(e) => e.currentTarget.select()}
           />
           <Button size="sm" variant="outline" onClick={() => setShowUrl(s => !s)}>{showUrl ? "Hide" : "Show"}</Button>
-          <Button size="sm" onClick={copyUrl} disabled={!postbackUrl}>Copy</Button>
+          <Button size="sm" onClick={() => copyUrl()} disabled={!postbackUrl}>Copy</Button>
         </div>
         <p className="mt-2 text-[10px] text-amber-400/80">⚠️ This URL contains your secret token. Never share it publicly — only paste into Monetag's dashboard.</p>
+      </div>
+
+      <div className="mt-5 glass rounded-2xl p-4 border border-primary/30">
+        <h3 className="text-sm font-semibold flex items-center gap-2">🌍 Backup Paid Offerwall <span className="text-[10px] px-2 py-0.5 rounded bg-primary/20 text-primary">REAL</span></h3>
+        <p className="mt-2 text-xs text-muted-foreground">Use a real offerwall network that supports Iraq/Kurdistan traffic. Good options to apply for: AdGate Media, CPAGrip, AdscendMedia, TimeWall, or Torox. Paste your publisher offerwall link here; rewards are still credited only from verified postbacks.</p>
+        <div className="mt-3 space-y-3">
+          <label className="block text-xs">
+            <span className="text-muted-foreground">Offerwall button name</span>
+            <Input className="mt-1" defaultValue={settings?.fallback_offerwall_name ?? "Offerwall"}
+              onBlur={(e) => action({ action: "update_settings", patch: { fallback_offerwall_name: e.target.value } })} />
+          </label>
+          <label className="block text-xs">
+            <span className="text-muted-foreground">Your offerwall link. Use {'{user_id}'} where the user id/subid goes.</span>
+            <Input className="mt-1 font-mono text-[10px]" placeholder="https://...subid={user_id}" defaultValue={settings?.fallback_offerwall_url ?? ""}
+              onBlur={(e) => action({ action: "update_settings", patch: { fallback_offerwall_url: e.target.value } })} />
+          </label>
+          <label className="block text-xs">
+            <span className="text-muted-foreground">Postback URL for the offerwall network</span>
+            <div className="mt-1 flex gap-2">
+              <Input readOnly value={offerwallPostbackUrl ? (showUrl ? offerwallPostbackUrl : offerwallPostbackUrl.replace(/token=[^&]+/, "token=••••••••")) : "Loading…"} className="font-mono text-[10px]" onFocus={(e) => e.currentTarget.select()} />
+              <Button size="sm" onClick={() => copyUrl(offerwallPostbackUrl)} disabled={!offerwallPostbackUrl}>Copy</Button>
+            </div>
+          </label>
+        </div>
       </div>
 
       {settings && (
@@ -138,6 +162,7 @@ function Admin() {
               ["referral_percent", "Referral %"],
               ["daily_bonus_base_usd", "Daily bonus $"],
               ["revenue_share_percent", "Rev share %"],
+              ["max_postback_reward_usd", "Max postback $"],
             ].map(([k, label]) => (
               <label key={k as string} className="text-xs">
                 <span className="text-muted-foreground">{label as string}</span>
