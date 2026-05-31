@@ -19,6 +19,14 @@ type MonetagResult = {
   sub_zone_id?: number;
 };
 
+type AdSettings = {
+  reward_per_ad_usd?: number;
+  daily_ad_cap?: number;
+  fallback_offerwall_enabled?: boolean;
+  fallback_offerwall_name?: string;
+  fallback_offerwall_url?: string;
+};
+
 declare global { interface Window { show_11040287?: (opts?: any) => Promise<MonetagResult>; } }
 
 const MONETAG_ZONE = "11040287";
@@ -94,6 +102,13 @@ async function waitForServerPostback(userId: string, rewardId: string) {
   return null;
 }
 
+function buildOfferwallUrl(template: string, userId: string) {
+  return template
+    .replaceAll("{user_id}", encodeURIComponent(userId))
+    .replaceAll("{subid}", encodeURIComponent(userId))
+    .replaceAll("{ymid}", encodeURIComponent(userId));
+}
+
 function Watch() {
   const { user, loading } = useAuth();
   const { t } = useT();
@@ -104,6 +119,7 @@ function Watch() {
   const [adsToday, setAdsToday] = useState(0);
   const [adHistory, setAdHistory] = useState<any[]>([]);
   const [status, setStatus] = useState<string>("");
+  const [settings, setSettings] = useState<AdSettings | null>(null);
 
   useEffect(() => { if (!loading && !user) nav({ to: "/auth" }); }, [loading, user]);
   useEffect(() => { if (user) void loadMonetagSdk(); }, [user]);
@@ -111,15 +127,26 @@ function Watch() {
   const reload = useCallback(async () => {
     if (!user) return;
     const [s, w, h] = await Promise.all([
-      supabase.from("app_settings").select("reward_per_ad_usd, daily_ad_cap").eq("id", 1).maybeSingle(),
+      supabase.from("app_settings").select("reward_per_ad_usd, daily_ad_cap, fallback_offerwall_enabled, fallback_offerwall_name, fallback_offerwall_url").eq("id", 1).maybeSingle(),
       supabase.from("ad_watches").select("id", { count: "exact", head: true })
         .eq("user_id", user.id).gte("created_at", new Date(new Date().setHours(0,0,0,0)).toISOString()),
       supabase.from("ad_watches").select("id, provider, reward_usd, postback_id, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
     ]);
     setPerAd(Number(s.data?.reward_per_ad_usd ?? 0)); setCap(s.data?.daily_ad_cap ?? 50); setAdsToday(w.count ?? 0);
+    setSettings(s.data ?? null);
     setAdHistory(h.data ?? []);
   }, [user]);
   useEffect(() => { reload(); }, [user]);
+
+  const openOfferwall = () => {
+    const url = buildOfferwallUrl(settings?.fallback_offerwall_url ?? "", user!.id);
+    if (!settings?.fallback_offerwall_enabled || !url.startsWith("https://")) {
+      toast.error(t("offerwall_not_configured"));
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+    setStatus(t("offerwall_opened"));
+  };
 
   const watch = async () => {
     if (adsToday >= cap) { toast.error(t("daily_limit_hit")); return; }
@@ -151,6 +178,7 @@ function Watch() {
         console.warn("[Earn][Monetag] all real ad formats unavailable", { zone: MONETAG_ZONE, rewardId, errors });
         toast.error(t("ad_inventory_empty"));
         setStatus(t("ad_inventory_empty"));
+        if (settings?.fallback_offerwall_enabled && settings?.fallback_offerwall_url) openOfferwall();
         return;
       }
       if (result?.reward_event_type === "non_valued") { toast.error(t("ad_not_paid")); setStatus(t("ad_not_paid")); return; }
@@ -183,6 +211,11 @@ function Watch() {
         <Button onClick={watch} disabled={busy || adsToday >= cap} className="mt-6 w-full glow-primary" size="lg">
           {busy ? <RefreshCw className="size-5 animate-spin" /> : <PlayCircle className="size-5" />} {busy ? t("watching") : t("watch_ad")}
         </Button>
+        {settings?.fallback_offerwall_enabled && settings?.fallback_offerwall_url && (
+          <Button onClick={openOfferwall} disabled={busy || adsToday >= cap} className="mt-3 w-full" variant="outline" size="lg">
+            {settings.fallback_offerwall_name || t("offerwall")}
+          </Button>
+        )}
         {status && <p className="mt-3 text-xs text-muted-foreground">{status}</p>}
 
         <p className="mt-6 text-[10px] leading-relaxed text-muted-foreground">{t("legal_note")}</p>
