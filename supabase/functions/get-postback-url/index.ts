@@ -1,4 +1,4 @@
-// Returns the full Monetag postback URL (including secret token) to admin users only.
+// Returns real ad-network postback URLs (including secret token) to admin users only.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
@@ -23,8 +23,10 @@ Deno.serve(async (req) => {
     if (!isAdmin) return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { ...cors, "content-type": "application/json" } });
 
     const secret = Deno.env.get("AD_POSTBACK_SECRET") ?? "";
-    const url = `${supaUrl}/functions/v1/ad-postback?user={ymid}&reward_id={request_var}&provider=monetag&reward_event_type={reward_event_type}&token=${secret}`;
-    return new Response(JSON.stringify({ url }), { headers: { ...cors, "content-type": "application/json" } });
+    const base = `${supaUrl}/functions/v1/ad-postback`;
+    const monetagUrl = `${base}?user={ymid}&reward_id={request_var}&provider=monetag&reward_event_type={reward_event_type}&token=${secret}`;
+    const offerwallUrl = `${base}?user={user_id}&reward_id={transaction_id}&provider={provider}&reward={amount}&token=${secret}`;
+    return new Response(JSON.stringify({ url: monetagUrl, monetagUrl, offerwallUrl }), { headers: { ...cors, "content-type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...cors, "content-type": "application/json" } });
   }
