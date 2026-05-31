@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     const secret = Deno.env.get("AD_POSTBACK_SECRET") ?? "";
     const base = `${supaUrl}/functions/v1/ad-postback`;
     const monetagUrl = `${base}?user={ymid}&reward_id={request_var}&provider=monetag&reward_event_type={reward_event_type}&token=${secret}`;
-    const offerwallUrl = `${base}?user={user_id}&reward_id={transaction_id}&provider={provider}&reward={amount}&token=${secret}`;
+    const offerwallUrl = `${base}?user={user_id}&reward_id={transaction_id}&provider=offerwall&reward={amount}&token=${secret}`;
     return new Response(JSON.stringify({ url: monetagUrl, monetagUrl, offerwallUrl }), {
       headers: { ...cors, "content-type": "application/json" },
     });
