@@ -55,7 +55,11 @@ export type Database = {
           daily_ad_cap: number
           daily_bonus_base_usd: number
           estimated_cpm_usd: number
+          fallback_offerwall_enabled: boolean
+          fallback_offerwall_name: string
+          fallback_offerwall_url: string
           id: number
+          max_postback_reward_usd: number
           min_withdraw_usd: number
           referral_percent: number
           revenue_share_percent: number
@@ -66,7 +70,11 @@ export type Database = {
           daily_ad_cap?: number
           daily_bonus_base_usd?: number
           estimated_cpm_usd?: number
+          fallback_offerwall_enabled?: boolean
+          fallback_offerwall_name?: string
+          fallback_offerwall_url?: string
           id?: number
+          max_postback_reward_usd?: number
           min_withdraw_usd?: number
           referral_percent?: number
           revenue_share_percent?: number
@@ -77,7 +85,11 @@ export type Database = {
           daily_ad_cap?: number
           daily_bonus_base_usd?: number
           estimated_cpm_usd?: number
+          fallback_offerwall_enabled?: boolean
+          fallback_offerwall_name?: string
+          fallback_offerwall_url?: string
           id?: number
+          max_postback_reward_usd?: number
           min_withdraw_usd?: number
           referral_percent?: number
           revenue_share_percent?: number
