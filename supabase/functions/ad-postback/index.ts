@@ -16,7 +16,15 @@ function eq(a: string, b: string) {
   return d === 0;
 }
 
-async function creditReward(supa: any, req: Request, user: string, rewardId: string, provider: string) {
+function parseReward(url: URL, settings: any) {
+  const fixedReward = Number(settings?.reward_per_ad_usd ?? 0.002);
+  const maxReward = Number(settings?.max_postback_reward_usd ?? 0.1);
+  const rawReward = Number(url.searchParams.get("reward") || url.searchParams.get("amount") || url.searchParams.get("payout") || "");
+  if (!Number.isFinite(rawReward) || rawReward <= 0) return fixedReward;
+  return Math.min(rawReward, maxReward);
+}
+
+async function creditReward(supa: any, req: Request, user: string, rewardId: string, provider: string, reward: number) {
   if (!user || !rewardId) return new Response("bad-request", { status: 400, headers: cors });
 
   // Check banned + load reward + check daily cap
@@ -34,7 +42,6 @@ async function creditReward(supa: any, req: Request, user: string, rewardId: str
     return new Response("daily-cap", { status: 429, headers: cors });
   }
 
-  const reward = Number(settings?.reward_per_ad_usd ?? 0.002);
   const ip = req.headers.get("x-forwarded-for") ?? "";
   const ua = req.headers.get("user-agent") ?? "";
 
