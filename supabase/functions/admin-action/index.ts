@@ -12,8 +12,39 @@ const Body = z.discriminatedUnion("action", [
   z.object({ action: z.literal("mark_paid"), id: z.string().uuid(), txid: z.string().min(4).max(200) }),
   z.object({ action: z.literal("ban_user"), user_id: z.string().uuid(), reason: z.string().max(500).optional() }),
   z.object({ action: z.literal("unban_user"), user_id: z.string().uuid() }),
-  z.object({ action: z.literal("update_settings"), patch: z.record(z.string(), z.number()) }),
+  z.object({ action: z.literal("update_settings"), patch: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])) }),
 ]);
+
+const settingTypes: Record<string, "number" | "string" | "boolean"> = {
+  reward_per_ad_usd: "number",
+  daily_ad_cap: "number",
+  min_withdraw_usd: "number",
+  referral_percent: "number",
+  daily_bonus_base_usd: "number",
+  revenue_share_percent: "number",
+  max_postback_reward_usd: "number",
+  fallback_offerwall_enabled: "boolean",
+  fallback_offerwall_name: "string",
+  fallback_offerwall_url: "string",
+};
+
+function sanitizeSettingsPatch(patch: Record<string, number | string | boolean>) {
+  const next: Record<string, number | string | boolean> = {};
+  for (const [key, value] of Object.entries(patch)) {
+    const type = settingTypes[key];
+    if (!type || typeof value !== type) continue;
+    if (type === "number" && (!Number.isFinite(value as number) || (value as number) < 0)) continue;
+    if (key === "fallback_offerwall_url") {
+      const url = String(value).trim();
+      if (url && !url.startsWith("https://")) continue;
+      next[key] = url.slice(0, 2000);
+      continue;
+    }
+    if (type === "string") next[key] = String(value).trim().slice(0, 120);
+    else next[key] = value;
+  }
+  return next;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -67,7 +98,9 @@ Deno.serve(async (req) => {
       await supa.from("profiles").update({ is_banned: false, ban_reason: null }).eq("id", a.user_id);
     }
     if (a.action === "update_settings") {
-      await supa.from("app_settings").update({ ...a.patch, updated_at: new Date().toISOString() }).eq("id", 1);
+      const patch = sanitizeSettingsPatch(a.patch);
+      if (Object.keys(patch).length === 0) return json({ error: "invalid-settings" }, 400);
+      await supa.from("app_settings").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", 1);
     }
 
     return json({ ok: true });
